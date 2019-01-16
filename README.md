@@ -1,10 +1,10 @@
-#Handwritten Digit Recognition
+# Handwritten Digit Recognition
 
 This project involves building a machine learning model for hand written digit recognition using backpropogation using
  minimal preprocessing and neurons. It's implementation was based on a [research paper](http://yann.lecun.com/exdb/publis/pdf/lecun-90c.pdf)
  
  
- ##Dataset:
+ ## Dataset:
    The dataset used is a MNSIT dataset which contains training set of 60,000 and a test set of 10,000 grayscale
    Images of resolution 28 x 28
    
