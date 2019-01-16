@@ -3,6 +3,9 @@
 This project involves building a machine learning model for hand written digit recognition using backpropogation using
  minimal preprocessing and neurons. It's implementation was based on a [research paper](http://yann.lecun.com/exdb/publis/pdf/lecun-90c.pdf)
  
+ ## Slack integration
+   Slack client is integrated in train.py file so that training rate at each epoch and 
+   final graph of each epoch can be seen on the from slack without the command line or using system.
  
  ## Dataset:
    The dataset used is a MNSIT dataset which contains training set of 60,000 and a test set of 10,000 grayscale
