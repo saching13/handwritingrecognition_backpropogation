@@ -8,16 +8,70 @@ from keras.optimizers import SGD
 from keras.metrics import categorical_accuracy
 import gzip, struct
 import matplotlib.pylab as plt
+from slacker import Slacker
+from keras.callbacks import Callback
+from timeit import default_timer as timer
+from datetime import datetime
 
-'''
-model = Sequential()
-model.add(Convolution2D(4, kernel_size=(5, 5), activation='relu', padding='valid', input_shape=(28, 28, 1)))
-model.add(MaxPooling2D(pool_size=(2, 2), strides=None, padding='valid', data_format=None))
+reporting_channel = 'handwrittendigit'
 
 
-model.add(Dense(2))
-model.add(Activation('softmax'))
-'''
+def report_stats(text, channel):
+    """Report training stats"""
+    r = slack.chat.post_message(channel=channel, text=text,
+                                username='Training Report',
+                                icon_emoji=':clipboard:')
+
+    if r.successful:
+        return True
+    else:
+        return r.error
+
+
+class SlackUpdate(Callback):
+    """Custom Keras callback that posts to Slack while training a neural network"""
+
+    def __init__(self, channel):
+        self.channel = channel
+
+    def on_train_begin(self, logs={}):
+        report_stats(text=f'Training started at {datetime.now()}',
+                     channel=reporting_channel)
+
+        self.start_time = timer()
+        self.train_acc = []
+        self.valid_acc = []
+        self.train_loss = []
+        self.valid_loss = []
+        self.n_epochs = 0
+
+    def on_epoch_end(self, batch, logs={}):
+
+        self.train_acc.append(logs.get('categorical_accuracy'))
+        self.valid_acc.append(logs.get('val_categorical_accuracy'))
+        self.train_loss.append(logs.get('loss'))
+        self.valid_loss.append(logs.get('val_loss'))
+        self.n_epochs += 1
+
+        message = f'Epoch: {self.n_epochs} Training Loss: {self.train_loss[-1]:.4f} Train_accuracy: ' \
+                  f'{self.train_acc[-1]:.4f}  Validation Loss: {self.valid_loss[-1]:.4f} Valid_accuracy: ' \
+                  f'{self.valid_acc[-1]:.4f}'
+
+        report_stats(message, channel=self.channel)
+
+    def on_train_end(self, logs={}):
+
+        best_epoch = np.argmin(self.valid_loss)
+        valid_loss = self.valid_loss[best_epoch]
+        train_loss = self.train_loss[best_epoch]
+        train_acc = self.train_acc[best_epoch]
+        valid_acc = self.valid_acc[best_epoch]
+
+        message = f'Trained for {self.n_epochs} epochs. Best epoch was {best_epoch + 1}.'
+        report_stats(message, channel=self.channel)
+        message = f'Best validation loss = {valid_loss:.4f} Training Loss = {train_loss:.2f} Validation accuracy = ' \
+                  f'{100*valid_acc:.2f}%'
+        report_stats(message, channel=self.channel)
 
 
 def model():
@@ -125,13 +179,22 @@ n = int(len(test_images) / 2)
 X_valid, y_valid = test_images[:n], test_labels_encoded[:n]
 X_test, y_test = test_images[n:], test_labels_encoded[n:]
 
+slack_token_id = None
+filepath = 'config'
+with open(filepath) as fp:
+    slack_token_id = fp.readline()
 
+
+slack = Slacker(slack_token_id)
+updater = SlackUpdate(channel=reporting_channel)
 cnn_model = model()
+cnn_model.save('my_model.h5')
 print(cnn_model.summary())
 
-cnn_history = cnn_model.fit(x=train_images, y=train_labels_encoded, batch_size=32, epochs=2000, verbose=2, callbacks=None,
-                            validation_split=0.0, validation_data=(X_valid, y_valid), shuffle=True, class_weight=None,
-                            sample_weight=None, initial_epoch=0, steps_per_epoch=None, validation_steps=None)
+cnn_history = cnn_model.fit(x=train_images, y=train_labels_encoded, batch_size=32, epochs=2000, verbose=2,
+                            validation_split=0.0, validation_data=(X_valid, y_valid), shuffle=True, callbacks=[updater],
+                            class_weight=None, sample_weight=None, initial_epoch=0, steps_per_epoch=None,
+                            validation_steps=None)
 
 cnn_scores = cnn_model.evaluate(X_test, y_test, verbose=0)
 
@@ -140,6 +203,8 @@ print("CNN Error: %.2f%%" % (100 - cnn_scores[1] * 100))
 
 plt.figure(figsize=(14, 5))
 plt.plot(cnn_history.history['categorical_accuracy'][3:], '-o', label='train')
-plt.plot(cnn_history.history['val_categorical_accuracy'][3:], '-o', label='test')
+plt.plot(cnn_history.history['val_categorical_accuracy'][3:], '-o', label='validation')
 plt.legend()
 plt.title('CNN Accuracy');
+plt.savefig('accuracy.png')
+slack.files.upload(file_='accuracy.png', title="Training Curves", channels='handwrittendigit')

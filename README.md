@@ -10,7 +10,8 @@ This project involves building a machine learning model for hand written digit r
    
    Data set link: [http://yann.lecun.com/exdb/mnist/](http://yann.lecun.com/exdb/mnist/)
    
-   To train the model download the dataset from the above link and place them in project directory and run the [main.py]()
+   To train the model download the dataset from the above link and place them in project directory and run the [Train.py]()
    
+   Train.py will create a model file which can be loaded and tested using [test.py]()
    
    
